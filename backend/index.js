@@ -5,6 +5,7 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.route.js"
+import cookieParser from "cookie-parser";
 
 mongoose.connect(process.env.MONGO_URI).then(()=> {
   console.log("DATABASE IS CONNECTED !!");
@@ -27,6 +28,11 @@ app.use(
 
 //Middleware to handle json 
 app.use(express.json());
+
+//Middleware to handle cookies
+app.use(cookieParser());
+
+//API Routes
 app.use("/api/auth",authRoutes);
 
 const PORT= 8000;
