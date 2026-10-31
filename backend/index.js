@@ -6,6 +6,7 @@ import cors from "cors";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth.route.js"
 import userRoutes from "./routes/user.route.js"
+import taskRoutes from "./routes/task.route.js"
 import cookieParser from "cookie-parser";
 
 mongoose.connect(process.env.MONGO_URI).then(()=> {
@@ -36,6 +37,7 @@ app.use(cookieParser());
 //API Routes
 app.use("/api/auth",authRoutes);
 app.use("/api/users",userRoutes);
+app.use("/api/tasks",taskRoutes);
 
 const PORT= 8000;
 app.listen(process.env.PORT || PORT,()=> {
