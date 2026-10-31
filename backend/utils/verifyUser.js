@@ -35,8 +35,6 @@ export const adminOnly = (req, res, next) => {
 
     req.user = user
 
-    console.log(req.user)
-
     if (req.user && req.user.role === "admin") {
       next()
     } else {
