@@ -2,8 +2,8 @@ import mongoose from "mongoose"
 import Task from "../models/task.model.js"
 import { errorHandler } from "../utils/error.js"
 
-export const createTask = async(req, res, next) => {
-try {
+export const createTask = async (req, res, next) => {
+  try {
     const {
       title,
       description,
@@ -35,7 +35,7 @@ try {
   }
 }
 
-export const getTask = async(req, res, next) => {
+export const getTask = async (req, res, next) => {
   try {
     const { status } = req.query
 
@@ -107,7 +107,7 @@ export const getTask = async(req, res, next) => {
   } catch (error) {
     next(error)
   }
- }
+}
 
 export const getTaskById = async (req, res, next) => {
   try {
@@ -126,7 +126,7 @@ export const getTaskById = async (req, res, next) => {
   }
 }
 
-export const updateTask = async (req,res, next) => {
+export const updateTask = async (req, res, next) => {
   try {
     const task = await Task.findById(req.params.id)
 
@@ -161,14 +161,14 @@ export const updateTask = async (req,res, next) => {
   }
 }
 
-export const deleteTask = async(req, res, next) => {
+export const deleteTask = async (req, res, next) => {
   const task = await Task.findById(req.params.id);
-  if(!task) {
+  if (!task) {
     return next(errorHandler(404, "Task not Found!"));
   }
 
   await task.deleteOne();
-  res.status(200).json({message:"Task deleted Successfully!"});
+  res.status(200).json({ message: "Task deleted Successfully!" });
 }
 
 export const updateTaskStatus = async (req, res, next) => {
@@ -253,63 +253,63 @@ export const updateTaskChecklist = async (req, res, next) => {
 
 export const getDashboardData = async (req, res, next) => {
   try {
-    
+
     const totalTasks = await Task.countDocuments();
-    const pendingTasks = await Task.countDocuments({status:"Pending"});
-    const completedTasks = await Task.countDocuments({status:"Completed"});
+    const pendingTasks = await Task.countDocuments({ status: "Pending" });
+    const completedTasks = await Task.countDocuments({ status: "Completed" });
     const overdueTasks = await Task.countDocuments({
-      status: {$ne : "Completed"},
-      dueDate: {$lt: new Date()},
+      status: { $ne: "Completed" },
+      dueDate: { $lt: new Date() },
     });
 
     const taskStatuses = ["Pending", "In Progress", "Completed"];
-    
+
     const taskDistributionRaw = await Task.aggregate([
       {
         $group: {
-          _id:"$status",
-          count:{$sum:1},
+          _id: "$status",
+          count: { $sum: 1 },
         }
       }
     ])
 
-    const taskDistribution = taskStatuses.reduce((acc, status)=>{
-      const formattedKeys = status.replace(/\s+/g,"")
-      acc[formattedKeys] = taskDistributionRaw.find((item)=>item._id === status)?.count || 0 ;
+    const taskDistribution = taskStatuses.reduce((acc, status) => {
+      const formattedKeys = status.replace(/\s+/g, "")
+      acc[formattedKeys] = taskDistributionRaw.find((item) => item._id === status)?.count || 0;
       return acc;
-    },{})
+    }, {})
 
     taskDistribution["All"] = totalTasks;
 
     const taskPriority = ["Low", "Medium", "High"];
-    
+
     const taskPriorityLevelRaw = await Task.aggregate([
       {
         $group: {
-          _id:"$priority",
-          count:{$sum:1},
+          _id: "$priority",
+          count: { $sum: 1 },
         }
       }
     ])
 
-    const taskPriorityLevel = taskPriority.reduce((acc, priority)=>{
-      acc[priority] = taskPriorityLevelRaw.find((item)=>item._id === priority)?.count || 0 ;
+    const taskPriorityLevel = taskPriority.reduce((acc, priority) => {
+      acc[priority] = taskPriorityLevelRaw.find((item) => item._id === priority)?.count || 0;
       return acc;
-    },{})
+    }, {})
 
     const recentTasks = await Task.find()
-      .sort({createdAt : -1})
+      .sort({ createdAt: -1 })
       .limit(10)
       .select("title status priority dueDate createdAt")
 
     res.status(200).json({
-      statistics : {
-        totalTasks:totalTasks,
+      statistics: {
+        totalTasks: totalTasks,
         pendingTasks,
         completedTasks,
         overdueTasks,
       },
-      charts:{
+      charts: {
         taskDistribution,
         taskPriorityLevel,
       },
@@ -317,6 +317,88 @@ export const getDashboardData = async (req, res, next) => {
     })
 
 
+  } catch (error) {
+    next(error)
+  }
+}
+
+export const userDashboardData = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+
+    //convert user Id to mongoose Obj Id
+    const userObjId = new mongoose.Types.ObjectId(userId);
+
+    //Task Count 
+
+    const totalTasks = await Task.countDocuments({ assignedTo: userObjId });
+    const pendingTasks = await Task.countDocuments({ assignedTo: userObjId, status: "Pending" })
+    const completedTasks = await Task.countDocuments({ assignedTo: userObjId, status: "Completed" })
+    const overdueTasks = await Task.countDocuments({
+      assignedTo: userObjId,
+      status: { $ne: "Completed" },
+      dueDate: { $lt: new Date() }
+    })
+
+    //Task Distribution 
+
+    const taskStatuses = ["Pending","In Progress","Completed"]
+
+    const taskDistributionRaw = await Task.aggregate([
+      {$match:{assignedTo:userObjId}},
+      {
+        $group:{
+          _id:"$status",
+          count:{$sum: 1}
+        }
+      }
+    ])
+
+    const taskDistribution = taskStatuses.reduce((acc, status) => {
+      const formattedKeys = status.replace(/\s+/g,"");
+      acc[formattedKeys] = taskDistributionRaw.find((item) => item._id === status)?.count || 0;
+      return acc;
+    },{})
+
+    taskDistribution["All"] = totalTasks;
+
+    // Priority Distribution 
+
+    const taskPriority = ["Low","Medium","High"];
+
+    const taskPriorityLevelRaw = await Task.aggregate([
+      {$match:{assignedTo:userObjId}},
+      {
+        $group:{
+          _id:"$priority",
+          count:{$sum: 1}
+        }
+      }
+    ])
+
+    const taskPriorityLevel = taskPriority.reduce((acc, priority) => {
+      acc[priority] = taskPriorityLevelRaw.find((item) => item._id === priority)?.count || 0;
+      return acc;
+    },{})
+
+    const recentTasks = await Task.find({assignedTo:userObjId})
+    .sort({createdAt: -1})
+    .limit(10)
+    .select("title status priority dueDate createdAt")
+
+    res.status(200).json({
+      statistics: {
+        totalTasks, 
+        pendingTasks, 
+        completedTasks, 
+        overdueTasks,
+      },
+      charts: {
+        taskDistribution, 
+        taskPriorityLevel,
+      },
+      recentTasks
+    })
   } catch (error) {
     next(error)
   }
